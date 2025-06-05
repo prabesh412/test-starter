@@ -15,6 +15,12 @@ const nextConfig: NextConfig = {
         port: "",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "az412349.cdn.gooten.com",
+        port: "",
+        pathname: "/**",
+      },
     ],
   },
 };
