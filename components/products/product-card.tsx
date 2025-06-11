@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { Star, ShoppingCart, Heart } from "lucide-react";
@@ -5,6 +7,7 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
 import { Product } from "@/lib/types";
+import { useCart } from "@/contexts/cart-context";
 
 interface ProductCardProps {
   product: Product;
@@ -15,7 +18,16 @@ export function ProductCard({
   product,
   variant = "default",
 }: ProductCardProps) {
-  const isInStock = product.stock > 0;
+  const { addToCart } = useCart();
+  const isInStock = true;
+
+  const handleAddToCart = async () => {
+    try {
+      await addToCart(product.id, 1);
+    } catch (error) {
+      console.error("Failed to add to cart:", error);
+    }
+  };
 
   return (
     <Card className="group overflow-hidden hover:shadow-lg transition-shadow">
@@ -98,7 +110,12 @@ export function ProductCard({
       </CardContent>
 
       <CardFooter className="p-4 pt-0">
-        <Button className="w-full" size="sm" disabled={!isInStock}>
+        <Button
+          className="w-full"
+          size="sm"
+          disabled={!isInStock}
+          onClick={handleAddToCart}
+        >
           <ShoppingCart className="h-4 w-4 mr-2" />
           {isInStock ? "Add to Cart" : "Out of Stock"}
         </Button>
