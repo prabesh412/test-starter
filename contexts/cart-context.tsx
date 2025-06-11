@@ -10,13 +10,10 @@ import {
   getCartTotal,
   getCartItemCount,
   createOrdersFromCart,
+  createOrderWithGooten,
+  Address,
 } from "@/lib/cart";
-
-// Simple toast replacement for now
-const toast = {
-  success: (message: string) => console.log(`✅ ${message}`),
-  error: (message: string) => console.error(`❌ ${message}`),
-};
+import { useToast } from "@/contexts/toast-context";
 
 interface CartContextType {
   addToCart: (
@@ -31,6 +28,10 @@ interface CartContextType {
   getCartTotal: () => Promise<number>;
   getCartItemCount: () => Promise<number>;
   createOrder: (customerEmail: string) => Promise<void>;
+  createOrderWithAddress: (
+    shippingAddress: Address,
+    billingAddress: Address
+  ) => Promise<any>;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -40,6 +41,8 @@ interface CartProviderProps {
 }
 
 export function CartProvider({ children }: CartProviderProps) {
+  const toast = useToast();
+
   const addToCart = async (
     productId: string,
     quantity: number = 1,
@@ -103,6 +106,24 @@ export function CartProvider({ children }: CartProviderProps) {
     }
   };
 
+  const createOrderWithAddress = async (
+    shippingAddress: Address,
+    billingAddress: Address
+  ) => {
+    try {
+      const result = await createOrderWithGooten(
+        shippingAddress,
+        billingAddress
+      );
+      toast.success("Order created successfully with Gooten");
+      return result;
+    } catch (error) {
+      console.error("Failed to create order with Gooten:", error);
+      toast.error("Failed to create order");
+      throw error;
+    }
+  };
+
   const contextValue: CartContextType = {
     addToCart,
     updateItemQuantity,
@@ -112,6 +133,7 @@ export function CartProvider({ children }: CartProviderProps) {
     getCartTotal,
     getCartItemCount,
     createOrder,
+    createOrderWithAddress,
   };
 
   return (

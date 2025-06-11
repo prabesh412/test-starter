@@ -237,11 +237,76 @@ export async function getCartItemCount(
   }, 0);
 }
 
-// Convert cart to orders
-export async function createOrdersFromCart(
-  customerEmail: string,
+// Interface for address information
+export interface Address {
+  firstName: string;
+  lastName: string;
+  line1: string;
+  line2?: string;
+  city: string;
+  state: string;
+  countryCode: string;
+  postalCode: string;
+  phone: string;
+  email: string;
+  isBusinessAddress?: boolean;
+}
+
+// Interface for Gooten order
+interface GootenOrderItem {
+  Quantity: number;
+  SKU: string;
+  ShipType: string;
+  Images: {
+    Url: string;
+    SpaceId: string;
+    Index: number;
+    ThumbnailUrl: string;
+  }[];
+}
+
+interface GootenOrderData {
+  ShipToAddress: {
+    FirstName: string;
+    LastName: string;
+    Line1: string;
+    Line2: string;
+    City: string;
+    State: string;
+    CountryCode: string;
+    PostalCode: string;
+    IsBusinessAddress: boolean;
+    Phone: string;
+    Email: string;
+  };
+  BillingAddress: {
+    FirstName: string;
+    LastName: string;
+    Line1: string;
+    Line2: string;
+    City: string;
+    State: string;
+    CountryCode: string;
+    PostalCode: string;
+    IsBusinessAddress: boolean;
+    Phone: string;
+    Email: string;
+  };
+  Items: GootenOrderItem[];
+  SourceId: string;
+  IsInTestMode: boolean;
+  Meta: {
+    [key: string]: any;
+    needs_customization: boolean;
+  };
+}
+
+// Create order using Gooten API
+export async function createOrderWithGooten(
+  shippingAddress: Address,
+  billingAddress: Address,
   userId: string = DEVELOPMENT_USER_ID
-): Promise<void> {
+): Promise<any> {
   const cartWithItems = await getCartWithItems(userId);
 
   if (
@@ -252,21 +317,126 @@ export async function createOrdersFromCart(
     throw new Error("Cart is empty");
   }
 
-  // Create orders for each cart item
+  // Map cart items to Gooten format
+  const gootenItems: GootenOrderItem[] = cartWithItems.cart_items.map(
+    (item) => ({
+      Quantity: item.quantity,
+      SKU:
+        item.products.sku ||
+        "Apparel-DTG-Tshirt-Anvil-980-M-LightBlue-Unisex-CFCB", // Use product SKU or dummy
+      ShipType: item.products.ship_type || "standard",
+      Images: [
+        {
+          Url:
+            item.products.image_url ||
+            "https://unsplash.com/photos/a-person-swimming-in-the-ocean-with-a-camera-NhWxAIs61MM",
+          SpaceId: item.products.space_id || "default-space",
+          Index: 5,
+          ThumbnailUrl:
+            item.products.thumbnail_url ||
+            item.products.image_url ||
+            "https://unsplash.com/photos/a-person-swimming-in-the-ocean-with-a-camera-NhWxAIs61MM",
+        },
+      ],
+    })
+  );
+
+  const orderData: GootenOrderData = {
+    ShipToAddress: {
+      FirstName: shippingAddress.firstName,
+      LastName: shippingAddress.lastName,
+      Line1: shippingAddress.line1,
+      Line2: shippingAddress.line2 || "",
+      City: shippingAddress.city,
+      State: shippingAddress.state,
+      CountryCode: shippingAddress.countryCode,
+      PostalCode: shippingAddress.postalCode,
+      IsBusinessAddress: shippingAddress.isBusinessAddress || false,
+      Phone: shippingAddress.phone,
+      Email: shippingAddress.email,
+    },
+    BillingAddress: {
+      FirstName: billingAddress.firstName,
+      LastName: billingAddress.lastName,
+      Line1: billingAddress.line1,
+      Line2: billingAddress.line2 || "",
+      City: billingAddress.city,
+      State: billingAddress.state,
+      CountryCode: billingAddress.countryCode,
+      PostalCode: billingAddress.postalCode,
+      IsBusinessAddress: billingAddress.isBusinessAddress || false,
+      Phone: billingAddress.phone,
+      Email: billingAddress.email,
+    },
+    Items: gootenItems,
+    SourceId: `cart-${cartWithItems.id}`,
+    IsInTestMode: true,
+    Meta: {
+      user_id: userId,
+      cart_id: cartWithItems.id,
+      needs_customization: true,
+    },
+  };
+
+  // Call Gooten API
+  const response = await fetch("http://localhost:8000/api/gooten/orders", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(orderData),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `Failed to create Gooten order: ${response.status} ${errorText}`
+    );
+  }
+
+  const result = await response.json();
+
+  // Store order in our database for tracking
   const orders: OrderInsert[] = cartWithItems.cart_items.map((item) => ({
     product_id: item.product_id,
     project_id: item.products.project_id,
     quantity: item.quantity,
-    customer_email: customerEmail,
+    customer_email: shippingAddress.email,
     status: "pending",
   }));
 
   const { error: orderError } = await supabase.from("orders").insert(orders);
 
   if (orderError) {
-    throw new Error(`Failed to create orders: ${orderError.message}`);
+    console.error("Failed to save order to database:", orderError);
+    // Don't throw here as the Gooten order was successful
   }
 
   // Clear the cart after successful order creation
   await clearCart(userId);
+
+  return result;
+}
+
+// Legacy function for backward compatibility
+export async function createOrdersFromCart(
+  customerEmail: string,
+  userId: string = DEVELOPMENT_USER_ID
+): Promise<void> {
+  // Use dummy address data for backward compatibility
+  const dummyAddress: Address = {
+    firstName: "John",
+    lastName: "Doe",
+    line1: "123 Main St",
+    line2: "Apt 1",
+    city: "New York",
+    state: "NY",
+    countryCode: "US",
+    postalCode: "10001",
+    phone: "+1234567890",
+    email: customerEmail,
+    isBusinessAddress: false,
+  };
+
+  await createOrderWithGooten(dummyAddress, dummyAddress, userId);
 }

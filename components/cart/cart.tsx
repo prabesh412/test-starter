@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPrice } from "@/lib/utils";
 import { useCart } from "@/contexts/cart-context";
 import { CartItem } from "./cart-item";
+import { CheckoutForm } from "./checkout-form";
 import { CartWithItems } from "@/lib/cart";
 
 export function Cart() {
@@ -14,6 +15,7 @@ export function Cart() {
   const [cart, setCart] = useState<CartWithItems | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [customerEmail, setCustomerEmail] = useState("");
+  const [showCheckout, setShowCheckout] = useState(false);
 
   const fetchCart = async () => {
     try {
@@ -131,32 +133,61 @@ export function Cart() {
                 <span className="text-lg font-bold">{formatPrice(total)}</span>
               </div>
 
-              {/* Email Input for Order */}
+              {/* Checkout Options */}
               <div className="space-y-4">
-                <div>
-                  <label
-                    htmlFor="email"
-                    className="block text-sm font-medium text-gray-700 mb-1"
+                <div className="flex space-x-2">
+                  <Button
+                    onClick={() => setShowCheckout(true)}
+                    className="flex-1"
                   >
-                    Email Address (for order)
-                  </label>
-                  <input
-                    type="email"
-                    id="email"
-                    value={customerEmail}
-                    onChange={(e) => setCustomerEmail(e.target.value)}
-                    placeholder="Enter your email"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
+                    Checkout with Address
+                  </Button>
+                  <Button
+                    onClick={() => setShowCheckout(false)}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    Quick Order
+                  </Button>
                 </div>
 
-                <Button
-                  onClick={handleCreateOrder}
-                  className="w-full"
-                  disabled={!customerEmail.trim()}
-                >
-                  Create Order
-                </Button>
+                {!showCheckout ? (
+                  // Quick order with email only
+                  <div className="space-y-4">
+                    <div>
+                      <label
+                        htmlFor="email"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                      >
+                        Email Address (for order)
+                      </label>
+                      <input
+                        type="email"
+                        id="email"
+                        value={customerEmail}
+                        onChange={(e) => setCustomerEmail(e.target.value)}
+                        placeholder="Enter your email"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+
+                    <Button
+                      onClick={handleCreateOrder}
+                      className="w-full"
+                      disabled={!customerEmail.trim()}
+                    >
+                      Create Quick Order (Dummy Address)
+                    </Button>
+                  </div>
+                ) : (
+                  // Full checkout form
+                  <CheckoutForm
+                    onOrderCreated={() => {
+                      fetchCart();
+                      setShowCheckout(false);
+                    }}
+                  />
+                )}
               </div>
             </div>
           </div>

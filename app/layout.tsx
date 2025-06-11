@@ -4,6 +4,8 @@ import "./globals.css";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { CartProvider } from "@/contexts/cart-context";
+import { ToastProvider } from "@/contexts/toast-context";
+import { ToastContainer } from "@/components/ui/toast";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -30,13 +32,16 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <CartProvider>
-          <div className="relative flex min-h-screen flex-col">
-            <Header />
-            <main className="flex-1">{children}</main>
-            <Footer />
-          </div>
-        </CartProvider>
+        <ToastProvider>
+          <CartProvider>
+            <div className="relative flex min-h-screen flex-col">
+              <Header />
+              <main className="flex-1">{children}</main>
+              <Footer />
+            </div>
+            <ToastContainer />
+          </CartProvider>
+        </ToastProvider>
       </body>
     </html>
   );
