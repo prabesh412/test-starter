@@ -11,11 +11,12 @@ import { CheckoutForm } from "./checkout-form";
 import { CartWithItems } from "@/lib/cart";
 
 export function Cart() {
-  const { getCartWithItems, clearCart, createOrder } = useCart();
+  const { getCartWithItems, clearCart, createStripeCheckout } = useCart();
   const [cart, setCart] = useState<CartWithItems | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [customerEmail, setCustomerEmail] = useState("");
   const [showCheckout, setShowCheckout] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const fetchCart = async () => {
     try {
@@ -49,11 +50,12 @@ export function Cart() {
     }
 
     try {
-      await createOrder(customerEmail);
-      await fetchCart(); // Refresh cart after order creation
-      setCustomerEmail("");
+      setIsProcessing(true);
+      await createStripeCheckout(customerEmail);
+      // Note: No need to clear email or fetch cart here since we're redirecting to Stripe
     } catch (error) {
-      console.error("Failed to create order:", error);
+      console.error("Failed to create checkout session:", error);
+      setIsProcessing(false);
     }
   };
 
@@ -147,12 +149,12 @@ export function Cart() {
                     variant="outline"
                     className="flex-1"
                   >
-                    Quick Order
+                    Quick Checkout
                   </Button>
                 </div>
 
                 {!showCheckout ? (
-                  // Quick order with email only
+                  // Quick checkout with email only
                   <div className="space-y-4">
                     <div>
                       <label
@@ -174,9 +176,11 @@ export function Cart() {
                     <Button
                       onClick={handleCreateOrder}
                       className="w-full"
-                      disabled={!customerEmail.trim()}
+                      disabled={!customerEmail.trim() || isProcessing}
                     >
-                      Create Quick Order (Dummy Address)
+                      {isProcessing
+                        ? "Redirecting to Checkout..."
+                        : "Proceed to Stripe Checkout"}
                     </Button>
                   </div>
                 ) : (

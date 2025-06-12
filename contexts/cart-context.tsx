@@ -32,6 +32,7 @@ interface CartContextType {
     shippingAddress: Address,
     billingAddress: Address
   ) => Promise<any>;
+  createStripeCheckout: (email: string) => Promise<void>;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -124,6 +125,56 @@ export function CartProvider({ children }: CartProviderProps) {
     }
   };
 
+  const createStripeCheckout = async (email: string) => {
+    try {
+      const cartData = await getCartWithItems();
+      if (
+        !cartData ||
+        !cartData.cart_items ||
+        cartData.cart_items.length === 0
+      ) {
+        throw new Error("Cart is empty");
+      }
+
+      const total = cartData.cart_items.reduce(
+        (sum: number, item: any) =>
+          sum + item.price_at_addition * item.quantity,
+        0
+      );
+
+      const response = await fetch(
+        "http://localhost:8000/api/stripe/create-checkout-session",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            amount: total,
+            currency: "usd",
+            userId: cartData.user_id,
+            projectId: cartData.cart_items[0]?.products?.project_id,
+            successUrl: `${window.location.origin}/checkout/success`,
+            cancelUrl: `${window.location.origin}/cart`,
+            productId: cartData.cart_items[0]?.product_id,
+            email: email,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to create checkout session");
+      }
+
+      const { data } = await response.json();
+      window.location.href = data.url;
+    } catch (error) {
+      console.error("Failed to create Stripe checkout:", error);
+      toast.error("Failed to create checkout session");
+      throw error;
+    }
+  };
+
   const contextValue: CartContextType = {
     addToCart,
     updateItemQuantity,
@@ -134,6 +185,7 @@ export function CartProvider({ children }: CartProviderProps) {
     getCartItemCount,
     createOrder,
     createOrderWithAddress,
+    createStripeCheckout,
   };
 
   return (
